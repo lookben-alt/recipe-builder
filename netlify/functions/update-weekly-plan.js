@@ -1,4 +1,4 @@
-import Airtable from 'airtable'
+import { neon } from '@neondatabase/serverless'
 
 function getWeekStart() {
   const now = new Date()
@@ -15,42 +15,28 @@ export const handler = async (event) => {
 
   try {
     const data = JSON.parse(event.body)
-
-    const base = new Airtable({
-      apiKey: process.env.AIRTABLE_API_KEY
-    }).base(process.env.AIRTABLE_BASE_ID)
-
+    const sql = neon(process.env.NETLIFY_DATABASE_URL)
     const weekStart = data.weekStart || getWeekStart()
+    const selectedRecipeIds = data.selectedRecipeIds || []
 
-    // Check if a plan exists for this week
-    const existing = await base('WeeklyPlan')
-      .select({
-        filterByFormula: `{WeekStart} = '${weekStart}'`,
-        maxRecords: 1
-      })
-      .all()
+    // Upsert: insert or update if week already exists
+    const result = await sql`
+      INSERT INTO weekly_plans (week_start, selected_recipe_ids)
+      VALUES (${weekStart}, ${selectedRecipeIds})
+      ON CONFLICT (week_start)
+      DO UPDATE SET selected_recipe_ids = ${selectedRecipeIds}
+      RETURNING id, week_start, selected_recipe_ids
+    `
 
-    let record
-    if (existing.length > 0) {
-      // Update existing
-      record = await base('WeeklyPlan').update(existing[0].id, {
-        SelectedRecipes: data.selectedRecipes || []
-      })
-    } else {
-      // Create new
-      record = await base('WeeklyPlan').create({
-        WeekStart: weekStart,
-        SelectedRecipes: data.selectedRecipes || []
-      })
-    }
+    const plan = result[0]
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: record.id,
-        weekStart: record.fields.WeekStart,
-        selectedRecipes: record.fields.SelectedRecipes || []
+        id: plan.id,
+        weekStart: plan.week_start,
+        selectedRecipeIds: plan.selected_recipe_ids || []
       })
     }
   } catch (error) {

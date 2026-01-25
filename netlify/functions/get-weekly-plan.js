@@ -1,4 +1,4 @@
-import Airtable from 'airtable'
+import { neon } from '@neondatabase/serverless'
 
 function getWeekStart() {
   const now = new Date()
@@ -14,20 +14,17 @@ export const handler = async (event) => {
   }
 
   try {
-    const base = new Airtable({
-      apiKey: process.env.AIRTABLE_API_KEY
-    }).base(process.env.AIRTABLE_BASE_ID)
-
+    const sql = neon(process.env.NETLIFY_DATABASE_URL)
     const weekStart = getWeekStart()
 
-    const records = await base('WeeklyPlan')
-      .select({
-        filterByFormula: `{WeekStart} = '${weekStart}'`,
-        maxRecords: 1
-      })
-      .all()
+    const plans = await sql`
+      SELECT id, week_start, selected_recipe_ids, created_at
+      FROM weekly_plans
+      WHERE week_start = ${weekStart}
+      LIMIT 1
+    `
 
-    if (records.length === 0) {
+    if (plans.length === 0) {
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -38,15 +35,36 @@ export const handler = async (event) => {
       }
     }
 
-    const record = records[0]
+    const plan = plans[0]
+
+    // Fetch the actual recipe data for the selected IDs
+    let selectedRecipes = []
+    if (plan.selected_recipe_ids && plan.selected_recipe_ids.length > 0) {
+      selectedRecipes = await sql`
+        SELECT id, name, ingredients, instructions, servings, prep_time, cook_time, tags, image_url
+        FROM recipes
+        WHERE id = ANY(${plan.selected_recipe_ids})
+      `
+      selectedRecipes = selectedRecipes.map(r => ({
+        id: r.id,
+        name: r.name,
+        ingredients: r.ingredients,
+        instructions: r.instructions,
+        servings: r.servings,
+        prepTime: r.prep_time,
+        cookTime: r.cook_time,
+        tags: r.tags || [],
+        image: r.image_url
+      }))
+    }
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: record.id,
-        weekStart: record.fields.WeekStart,
-        selectedRecipes: record.fields.SelectedRecipes || []
+        id: plan.id,
+        weekStart: plan.week_start,
+        selectedRecipes
       })
     }
   } catch (error) {

@@ -1,4 +1,4 @@
-import Airtable from 'airtable'
+import { neon } from '@neondatabase/serverless'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'GET') {
@@ -6,34 +6,41 @@ export const handler = async (event) => {
   }
 
   try {
-    const base = new Airtable({
-      apiKey: process.env.AIRTABLE_API_KEY
-    }).base(process.env.AIRTABLE_BASE_ID)
+    const sql = neon(process.env.NETLIFY_DATABASE_URL)
 
-    const records = await base('Recipes')
-      .select({
-        view: 'Grid view',
-        sort: [{ field: 'CreatedAt', direction: 'desc' }]
-      })
-      .all()
+    const recipes = await sql`
+      SELECT
+        id,
+        name,
+        ingredients,
+        instructions,
+        servings,
+        prep_time,
+        cook_time,
+        tags,
+        image_url,
+        created_at
+      FROM recipes
+      ORDER BY created_at DESC
+    `
 
-    const recipes = records.map(record => ({
-      id: record.id,
-      name: record.fields.Name || '',
-      ingredients: record.fields.Ingredients || '',
-      instructions: record.fields.Instructions || '',
-      servings: record.fields.Servings || 4,
-      prepTime: record.fields.PrepTime || 0,
-      cookTime: record.fields.CookTime || 0,
-      tags: record.fields.Tags || [],
-      image: record.fields.Image?.[0]?.url || null,
-      createdAt: record.fields.CreatedAt
+    const formattedRecipes = recipes.map(recipe => ({
+      id: recipe.id,
+      name: recipe.name || '',
+      ingredients: recipe.ingredients || '',
+      instructions: recipe.instructions || '',
+      servings: recipe.servings || 4,
+      prepTime: recipe.prep_time || 0,
+      cookTime: recipe.cook_time || 0,
+      tags: recipe.tags || [],
+      image: recipe.image_url,
+      createdAt: recipe.created_at
     }))
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(recipes)
+      body: JSON.stringify(formattedRecipes)
     }
   } catch (error) {
     console.error('Error fetching recipes:', error)
