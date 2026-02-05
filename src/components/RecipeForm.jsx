@@ -11,6 +11,10 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
     tags: initialData.tags?.join(', ') || '',
     image: initialData.image || ''
   });
+  const [showAiParser, setShowAiParser] = useState(false);
+  const [rawRecipe, setRawRecipe] = useState('');
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -33,8 +37,88 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
     });
   };
 
+  const handleAiParse = async () => {
+    if (!rawRecipe.trim()) {
+      setParseError('Please paste some recipe text');
+      return;
+    }
+
+    setParsing(true);
+    setParseError('');
+
+    try {
+      const response = await fetch('/.netlify/functions/parse-recipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recipeText: rawRecipe })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to parse recipe');
+      }
+
+      const parsed = await response.json();
+
+      // Update form with parsed data
+      setFormData({
+        name: parsed.name || '',
+        ingredients: parsed.ingredients || '',
+        instructions: parsed.instructions || '',
+        prepTime: parsed.prepTime || '',
+        cookTime: parsed.cookTime || '',
+        servings: parsed.servings || '',
+        tags: parsed.tags ? parsed.tags.join(', ') : '',
+        image: ''
+      });
+
+      setShowAiParser(false);
+      setRawRecipe('');
+    } catch (error) {
+      console.error('Parse error:', error);
+      setParseError('Failed to parse recipe. Please try again or fill manually.');
+    } finally {
+      setParsing(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* AI Parser Section */}
+      <div className="border-b pb-4">
+        <button
+          type="button"
+          onClick={() => setShowAiParser(!showAiParser)}
+          className="w-full flex items-center justify-between text-left font-medium text-purple-600 hover:text-purple-700"
+        >
+          <span>✨ AI Recipe Parser (Paste & Auto-fill)</span>
+          <span>{showAiParser ? '−' : '+'}</span>
+        </button>
+
+        {showAiParser && (
+          <div className="mt-3 space-y-3">
+            <textarea
+              value={rawRecipe}
+              onChange={(e) => setRawRecipe(e.target.value)}
+              rows={8}
+              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Paste recipe text from anywhere (website, message, etc.) and click Parse..."
+            />
+            {parseError && (
+              <p className="text-sm text-red-600">{parseError}</p>
+            )}
+            <button
+              type="button"
+              onClick={handleAiParse}
+              disabled={parsing}
+              className="w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:bg-gray-400 transition-colors"
+            >
+              {parsing ? 'Parsing with AI...' : '✨ Parse Recipe'}
+            </button>
+          </div>
+        )}
+      </div>
       <div>
         <label className="block text-sm font-medium mb-1">Recipe Name *</label>
         <input
