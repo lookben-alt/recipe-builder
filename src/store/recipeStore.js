@@ -5,6 +5,7 @@ const useRecipeStore = create(
   persist(
     (set, get) => ({
       recipes: [],
+      shoppingList: [], // Array of recipe IDs
 
       addRecipe: (recipe) => set((state) => ({
         recipes: [...state.recipes, {
@@ -21,11 +22,32 @@ const useRecipeStore = create(
       })),
 
       deleteRecipe: (id) => set((state) => ({
-        recipes: state.recipes.filter(recipe => recipe.id !== id)
+        recipes: state.recipes.filter(recipe => recipe.id !== id),
+        shoppingList: state.shoppingList.filter(recipeId => recipeId !== id)
       })),
 
       getRecipe: (id) => {
         return get().recipes.find(recipe => recipe.id === id);
+      },
+
+      // Shopping list methods
+      addToShoppingList: (recipeId) => set((state) => ({
+        shoppingList: state.shoppingList.includes(recipeId)
+          ? state.shoppingList
+          : [...state.shoppingList, recipeId]
+      })),
+
+      removeFromShoppingList: (recipeId) => set((state) => ({
+        shoppingList: state.shoppingList.filter(id => id !== recipeId)
+      })),
+
+      clearShoppingList: () => set({ shoppingList: [] }),
+
+      getShoppingListRecipes: () => {
+        const state = get();
+        return state.shoppingList
+          .map(id => state.recipes.find(recipe => recipe.id === id))
+          .filter(Boolean);
       }
     }),
     {

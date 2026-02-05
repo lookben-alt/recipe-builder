@@ -3,12 +3,22 @@ import useRecipeStore from './store/recipeStore';
 import RecipeCard from './components/RecipeCard';
 import RecipeForm from './components/RecipeForm';
 import RecipeModal from './components/RecipeModal';
+import ShoppingList from './components/ShoppingList';
 
 function App() {
-  const { recipes, addRecipe, deleteRecipe } = useRecipeStore();
+  const {
+    recipes,
+    addRecipe,
+    deleteRecipe,
+    shoppingList,
+    addToShoppingList,
+    removeFromShoppingList,
+    getShoppingListRecipes
+  } = useRecipeStore();
   const [showForm, setShowForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showShoppingList, setShowShoppingList] = useState(false);
 
   const handleAddRecipe = (recipe) => {
     addRecipe(recipe);
@@ -33,12 +43,25 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-gray-900">My Recipe Book</h1>
-            <button
-              onClick={() => setShowForm(true)}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              + Add Recipe
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowShoppingList(true)}
+                className="relative bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                🛒 Shopping List
+                {shoppingList.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
+                    {shoppingList.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                + Add Recipe
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -81,6 +104,8 @@ function App() {
                 recipe={recipe}
                 onView={setSelectedRecipe}
                 onDelete={handleDeleteRecipe}
+                onAddToList={addToShoppingList}
+                isInList={shoppingList.includes(recipe.id)}
               />
             ))}
           </div>
@@ -105,6 +130,15 @@ function App() {
         <RecipeModal
           recipe={selectedRecipe}
           onClose={() => setSelectedRecipe(null)}
+        />
+      )}
+
+      {/* Shopping List Modal */}
+      {showShoppingList && (
+        <ShoppingList
+          recipes={getShoppingListRecipes()}
+          onClose={() => setShowShoppingList(false)}
+          onRemoveRecipe={removeFromShoppingList}
         />
       )}
     </div>
