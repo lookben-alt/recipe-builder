@@ -68,11 +68,12 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to parse recipe');
-      }
-
       const parsed = await response.json();
+
+      if (!response.ok) {
+        // Extract error message from server response
+        throw new Error(parsed.error || 'Failed to parse recipe');
+      }
 
       // Update form with parsed data
       setFormData({
@@ -91,7 +92,8 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
       setRecipeUrl('');
     } catch (error) {
       console.error('Parse error:', error);
-      setParseError('Failed to parse recipe. Please try again or fill manually.');
+      // Display the actual error message from the server
+      setParseError(error.message || 'Failed to parse recipe. Please try again or fill manually.');
     } finally {
       setParsing(false);
     }
