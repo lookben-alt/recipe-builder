@@ -4,7 +4,6 @@ import RecipeCard from './components/RecipeCard';
 import RecipeForm from './components/RecipeForm';
 import RecipeModal from './components/RecipeModal';
 import ShoppingList from './components/ShoppingList';
-import SwipeView from './components/SwipeView';
 
 function App() {
   const {
@@ -20,7 +19,6 @@ function App() {
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showShoppingList, setShowShoppingList] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'swipe'
 
   const handleAddRecipe = (recipe) => {
     addRecipe(recipe);
@@ -70,39 +68,15 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Search Bar and View Toggle */}
-        <div className="mb-8 flex gap-4 items-center flex-wrap">
+        {/* Search Bar */}
+        <div className="mb-8">
           <input
             type="text"
             placeholder="Search recipes by name or tag..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 max-w-md px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full max-w-md px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-
-          {/* View Mode Toggle */}
-          <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-white shadow text-blue-600 font-medium'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              📱 Grid
-            </button>
-            <button
-              onClick={() => setViewMode('swipe')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                viewMode === 'swipe'
-                  ? 'bg-white shadow text-blue-600 font-medium'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              💫 Swipe
-            </button>
-          </div>
         </div>
 
         {/* Recipe Display */}
@@ -122,7 +96,7 @@ function App() {
               </button>
             )}
           </div>
-        ) : viewMode === 'grid' ? (
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredRecipes.map((recipe) => (
               <RecipeCard
@@ -135,13 +109,6 @@ function App() {
               />
             ))}
           </div>
-        ) : (
-          <SwipeView
-            recipes={filteredRecipes}
-            onAddToList={addToShoppingList}
-            onView={setSelectedRecipe}
-            isInList={(id) => shoppingList.includes(id)}
-          />
         )}
       </main>
 
