@@ -8,12 +8,70 @@ export const handler = async (event) => {
   }
 
   try {
-    const { recipeText } = JSON.parse(event.body);
+    const { recipeText, recipeUrl } = JSON.parse(event.body);
+    let contentToParse = recipeText;
+    let extractedImage = null;
 
-    if (!recipeText || recipeText.trim().length === 0) {
+    // If URL provided, fetch the webpage
+    if (recipeUrl && recipeUrl.trim().length > 0) {
+      try {
+        const pageResponse = await fetch(recipeUrl);
+        if (!pageResponse.ok) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: 'Failed to fetch recipe URL' })
+          };
+        }
+
+        const html = await pageResponse.text();
+
+        // Extract main content (simple approach - get text between body tags)
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        const bodyContent = bodyMatch ? bodyMatch[1] : html;
+
+        // Remove script and style tags
+        const cleanedContent = bodyContent
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        contentToParse = cleanedContent;
+
+        // Try to find recipe image (look for common patterns)
+        const imagePatterns = [
+          /<meta property="og:image" content="([^"]+)"/i,
+          /<img[^>]*class="[^"]*recipe[^"]*"[^>]*src="([^"]+)"/i,
+          /<img[^>]*src="([^"]*recipe[^"]*)"/i,
+          /<img[^>]*src="([^"]+)"[^>]*alt="[^"]*recipe[^"]*"/i
+        ];
+
+        for (const pattern of imagePatterns) {
+          const match = html.match(pattern);
+          if (match && match[1]) {
+            extractedImage = match[1];
+            // Make relative URLs absolute
+            if (extractedImage.startsWith('/')) {
+              const urlObj = new URL(recipeUrl);
+              extractedImage = `${urlObj.protocol}//${urlObj.host}${extractedImage}`;
+            }
+            break;
+          }
+        }
+      } catch (urlError) {
+        console.error('Error fetching URL:', urlError);
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: 'Failed to fetch or parse recipe URL' })
+        };
+      }
+    }
+
+    if (!contentToParse || contentToParse.trim().length === 0) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Recipe text is required' })
+        body: JSON.stringify({ error: 'Recipe text or URL is required' })
       };
     }
 
@@ -38,11 +96,14 @@ export const handler = async (event) => {
   "prepTime": number in minutes or null,
   "cookTime": number in minutes or null,
   "servings": number or null,
-  "tags": ["tag1", "tag2"]
+  "tags": ["tag1", "tag2"],
+  "image": "image URL if found, otherwise null"
 }
 
 Recipe to parse:
-${recipeText}`
+${contentToParse}
+
+${extractedImage ? `\nFound image URL: ${extractedImage}` : ''}`
         }]
       })
     });
@@ -65,6 +126,11 @@ ${recipeText}`
       // Remove any markdown code blocks if present
       const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       parsedRecipe = JSON.parse(cleanContent);
+
+      // If we extracted an image but Claude didn't include it, add it
+      if (extractedImage && !parsedRecipe.image) {
+        parsedRecipe.image = extractedImage;
+      }
     } catch (e) {
       console.error('Failed to parse Claude response as JSON:', content);
       return {

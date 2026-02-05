@@ -13,6 +13,8 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
   });
   const [showAiParser, setShowAiParser] = useState(false);
   const [rawRecipe, setRawRecipe] = useState('');
+  const [recipeUrl, setRecipeUrl] = useState('');
+  const [inputMode, setInputMode] = useState('text'); // 'text' or 'url'
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
 
@@ -38,9 +40,20 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
   };
 
   const handleAiParse = async () => {
-    if (!rawRecipe.trim()) {
-      setParseError('Please paste some recipe text');
-      return;
+    const payload = {};
+
+    if (inputMode === 'url') {
+      if (!recipeUrl.trim()) {
+        setParseError('Please enter a recipe URL');
+        return;
+      }
+      payload.recipeUrl = recipeUrl;
+    } else {
+      if (!rawRecipe.trim()) {
+        setParseError('Please paste some recipe text');
+        return;
+      }
+      payload.recipeText = rawRecipe;
     }
 
     setParsing(true);
@@ -52,7 +65,7 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ recipeText: rawRecipe })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -70,11 +83,12 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
         cookTime: parsed.cookTime || '',
         servings: parsed.servings || '',
         tags: parsed.tags ? parsed.tags.join(', ') : '',
-        image: ''
+        image: parsed.image || ''
       });
 
       setShowAiParser(false);
       setRawRecipe('');
+      setRecipeUrl('');
     } catch (error) {
       console.error('Parse error:', error);
       setParseError('Failed to parse recipe. Please try again or fill manually.');
@@ -98,13 +112,50 @@ export default function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
 
         {showAiParser && (
           <div className="mt-3 space-y-3">
-            <textarea
-              value={rawRecipe}
-              onChange={(e) => setRawRecipe(e.target.value)}
-              rows={8}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="Paste recipe text from anywhere (website, message, etc.) and click Parse..."
-            />
+            {/* Toggle between text and URL */}
+            <div className="flex gap-2 border-b">
+              <button
+                type="button"
+                onClick={() => setInputMode('text')}
+                className={`px-4 py-2 ${
+                  inputMode === 'text'
+                    ? 'border-b-2 border-purple-600 text-purple-600 font-medium'
+                    : 'text-gray-500'
+                }`}
+              >
+                Paste Text
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('url')}
+                className={`px-4 py-2 ${
+                  inputMode === 'url'
+                    ? 'border-b-2 border-purple-600 text-purple-600 font-medium'
+                    : 'text-gray-500'
+                }`}
+              >
+                From URL
+              </button>
+            </div>
+
+            {inputMode === 'text' ? (
+              <textarea
+                value={rawRecipe}
+                onChange={(e) => setRawRecipe(e.target.value)}
+                rows={8}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Paste recipe text from anywhere (website, message, etc.) and click Parse..."
+              />
+            ) : (
+              <input
+                type="url"
+                value={recipeUrl}
+                onChange={(e) => setRecipeUrl(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="https://example.com/recipe-page"
+              />
+            )}
+
             {parseError && (
               <p className="text-sm text-red-600">{parseError}</p>
             )}
