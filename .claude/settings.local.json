@@ -12,7 +12,14 @@
       "Bash(netlify dev)",
       "mcp__Brave__AppleScript___open_url",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(gh auth status:*)",
+      "Bash(brew install:*)",
+      "Bash(gh auth login:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh repo sync:*)",
+      "Bash(git remote set-url:*)"
     ]
   }
 }
