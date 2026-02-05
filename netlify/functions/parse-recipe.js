@@ -8,6 +8,15 @@ export const handler = async (event) => {
   }
 
   try {
+    // Check if API key is configured
+    if (!process.env.CLAUDE_API_KEY) {
+      console.error('CLAUDE_API_KEY environment variable is not set');
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'API key not configured. Please add CLAUDE_API_KEY to Netlify environment variables.' })
+      };
+    }
+
     const { recipeText, recipeUrl } = JSON.parse(event.body);
     let contentToParse = recipeText;
     let extractedImage = null;
@@ -109,11 +118,24 @@ ${extractedImage ? `\nFound image URL: ${extractedImage}` : ''}`
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Claude API error:', error);
+      const errorText = await response.text();
+      console.error('Claude API error status:', response.status);
+      console.error('Claude API error body:', errorText);
+
+      let errorMessage = 'Claude API error: ';
+      if (response.status === 401) {
+        errorMessage = 'Invalid API key. Please check your CLAUDE_API_KEY in Netlify.';
+      } else if (response.status === 429) {
+        errorMessage = 'Rate limit exceeded. Please try again in a moment.';
+      } else if (response.status === 400) {
+        errorMessage = 'Bad request to Claude API. Please check your input.';
+      } else {
+        errorMessage = `Claude API error (${response.status}). Check Netlify function logs for details.`;
+      }
+
       return {
         statusCode: response.status,
-        body: JSON.stringify({ error: 'Failed to parse recipe' })
+        body: JSON.stringify({ error: errorMessage })
       };
     }
 
@@ -132,10 +154,13 @@ ${extractedImage ? `\nFound image URL: ${extractedImage}` : ''}`
         parsedRecipe.image = extractedImage;
       }
     } catch (e) {
-      console.error('Failed to parse Claude response as JSON:', content);
+      console.error('Failed to parse Claude response as JSON:', e.message);
+      console.error('Claude response was:', content);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to parse AI response' })
+        body: JSON.stringify({
+          error: `Failed to parse AI response. The AI returned invalid JSON. Check Netlify logs for details.`
+        })
       };
     }
 
@@ -148,10 +173,13 @@ ${extractedImage ? `\nFound image URL: ${extractedImage}` : ''}`
     };
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Unexpected error:', error.message);
+    console.error('Error stack:', error.stack);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({
+        error: `Internal error: ${error.message}. Check Netlify function logs for details.`
+      })
     };
   }
 };
